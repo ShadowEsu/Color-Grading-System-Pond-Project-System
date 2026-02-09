@@ -1,0 +1,7 @@
+{
+  "description": "Professional chemical strip color examiner with perceptual CIE Lab logic and white-balance calibration.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "name": "Color Examiner AI"
+}
