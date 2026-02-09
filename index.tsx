@@ -14,7 +14,14 @@ import {
   Pipette,
   Crosshair,
   Camera,
-  X
+  X,
+  Share2,
+  Download,
+  ShieldCheck,
+  Microscope,
+  FileText,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 
 // --- Color Science Utilities ---
@@ -85,7 +92,7 @@ class ColorScience {
   }
 }
 
-// --- Main Application ---
+// --- Constants ---
 
 const ROI_STEPS = [
   { key: 'A', label: 'Reference Color A', color: 'border-blue-500 bg-blue-500/10 text-blue-400' },
@@ -104,6 +111,8 @@ interface AnalysisResults {
   controlSat: number;
 }
 
+// --- Main Application ---
+
 export default function ColorExaminer() {
   const [image, setImage] = useState<string | null>(null);
   const [step, setStep] = useState(0);
@@ -112,6 +121,7 @@ export default function ColorExaminer() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -129,13 +139,17 @@ export default function ColorExaminer() {
     const reader = new FileReader();
     reader.onload = (event) => {
       setImage(event.target?.result as string);
-      setStep(0);
-      setRois({ A: null, B: null, TEST: null, CONTROL: null });
-      setResults(null);
-      setError(null);
-      setIsCameraActive(false);
+      resetAnalysis();
     };
     reader.readAsDataURL(file);
+  };
+
+  const resetAnalysis = () => {
+    setStep(0);
+    setRois({ A: null, B: null, TEST: null, CONTROL: null });
+    setResults(null);
+    setError(null);
+    setIsCameraActive(false);
   };
 
   const startCamera = async () => {
@@ -174,12 +188,18 @@ export default function ColorExaminer() {
         tCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
         const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.95);
         setImage(dataUrl);
-        setStep(0);
-        setRois({ A: null, B: null, TEST: null, CONTROL: null });
-        setResults(null);
+        resetAnalysis();
         stopCamera();
       }
     }
+  };
+
+  const copyResultsToClipboard = () => {
+    if (!results) return;
+    const text = `Color Examiner AI Results:\nWinner: ${results.winner}\nLikelihood A: ${results.pctA.toFixed(1)}%\nLikelihood B: ${results.pctB.toFixed(1)}%\n\nTechnical Report:\n${results.report}`;
+    navigator.clipboard.writeText(text);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
   };
 
   useEffect(() => {
@@ -320,180 +340,347 @@ export default function ColorExaminer() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8 font-sans selection:bg-blue-500/30">
-      <header className="max-w-6xl mx-auto mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-900/20"><Crosshair className="w-6 h-6 text-white" /></div>
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">Color Examiner</h1>
+    <div className="min-h-screen flex flex-col">
+      {/* Navigation */}
+      <nav className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-xl border-b border-slate-900 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-900/40">
+              <Crosshair className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+                Color Examiner AI
+              </h1>
+              <span className="text-[10px] uppercase tracking-widest font-bold text-blue-500">Professional Studio</span>
+            </div>
           </div>
-          <p className="text-slate-500 font-medium">Professional Chemical Strip Vision Analysis</p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {!image && !isCameraActive ? (
-            <>
-              <button 
-                onClick={startCamera} 
-                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-full font-bold transition-all"
-              >
-                <Camera className="w-5 h-5" />
-                Live Camera
-              </button>
-              <label className="group flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-full font-bold cursor-pointer transition-all shadow-lg shadow-blue-600/20">
-                <Upload className="w-5 h-5 group-hover:-translate-y-1 transition-transform" />
-                Upload Image
-                <input type="file" className="hidden" accept="image/*" onChange={handleUpload} />
-              </label>
-            </>
-          ) : (
-            <button 
-              onClick={() => { 
-                setImage(null); 
-                setResults(null); 
-                setStep(0); 
-                setRois({ A: null, B: null, TEST: null, CONTROL: null }); 
-                stopCamera();
-              }} 
-              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-6 py-3 rounded-full font-bold transition-all"
-            >
-              <RefreshCcw className="w-5 h-5" />
-              Reset All
-            </button>
-          )}
-        </div>
-      </header>
 
-      <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-7 space-y-6">
-          {!image && !isCameraActive ? (
-            <div className="aspect-video rounded-2xl border-2 border-dashed border-slate-800 flex flex-col items-center justify-center p-12 bg-slate-900/50 group transition-all hover:border-blue-500/50">
-              <div className="bg-slate-800 p-6 rounded-full mb-4 group-hover:scale-110 transition-transform"><Pipette className="w-12 h-12 text-slate-600" /></div>
-              <h3 className="text-xl font-semibold mb-2 text-slate-300">No Image Selected</h3>
-              <p className="text-slate-500 text-center max-w-sm mb-6">Select a method above to begin. You can either take a live photo or upload a saved one.</p>
-              <div className="flex gap-4">
-                <button onClick={startCamera} className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-lg transition-all flex items-center gap-2">
-                  <Camera className="w-4 h-4" /> Camera
+          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
+            <a href="#" className="hover:text-white transition-colors">Analyzer</a>
+            <a href="#features" className="hover:text-white transition-colors">How it works</a>
+            <a href="#about" className="hover:text-white transition-colors">Science</a>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {image || isCameraActive ? (
+              <button 
+                onClick={() => { setImage(null); setResults(null); stopCamera(); resetAnalysis(); }}
+                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-full text-sm font-bold transition-all"
+              >
+                <RefreshCcw className="w-4 h-4" />
+                Reset
+              </button>
+            ) : null}
+            <button className="bg-white text-slate-950 px-5 py-2 rounded-full text-sm font-bold hover:bg-slate-200 transition-all flex items-center gap-2">
+              <Share2 className="w-4 h-4" /> Share
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <main className="flex-grow">
+        {!image && !isCameraActive ? (
+          /* Hero Section */
+          <div className="relative overflow-hidden pt-20 pb-32">
+            <div className="max-w-7xl mx-auto px-6 relative z-10 text-center">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold mb-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
+                <Zap className="w-3 h-3" /> Powered by Gemini 3 & CIE Lab
+              </div>
+              <h2 className="text-5xl md:text-7xl font-black mb-6 leading-tight tracking-tight animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
+                Precision Chemical <br className="hidden md:block" />
+                Vision for the <span className="text-blue-500 italic">Modern Lab</span>.
+              </h2>
+              <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto mb-12 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
+                Accurately compare test strip results using perceptual color space math. 
+                Our AI corrects for lighting, glare, and shadows in real-time.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-6 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
+                <button 
+                  onClick={startCamera}
+                  className="w-full sm:w-auto flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-500 text-white px-10 py-5 rounded-2xl font-black text-lg transition-all shadow-2xl shadow-blue-600/30 group active:scale-95"
+                >
+                  <Camera className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                  Live Camera Capture
                 </button>
-                <label className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg cursor-pointer transition-all flex items-center gap-2">
-                  <Upload className="w-4 h-4" /> Upload
+                <label className="w-full sm:w-auto flex items-center justify-center gap-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-white px-10 py-5 rounded-2xl font-black text-lg cursor-pointer transition-all active:scale-95">
+                  <Upload className="w-6 h-6" />
+                  Upload Photo
                   <input type="file" className="hidden" accept="image/*" onChange={handleUpload} />
                 </label>
               </div>
-            </div>
-          ) : isCameraActive ? (
-            <div className="bg-black rounded-3xl border border-slate-800 overflow-hidden shadow-2xl relative aspect-video flex items-center justify-center">
-              <video 
-                ref={videoRef} 
-                autoPlay 
-                playsInline 
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-4">
-                <button 
-                  onClick={stopCamera} 
-                  className="bg-slate-900/80 hover:bg-slate-800 text-white p-4 rounded-full backdrop-blur-md transition-all border border-white/10"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-                <button 
-                  onClick={capturePhoto} 
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-full font-bold shadow-2xl flex items-center gap-2 active:scale-95 transition-all"
-                >
-                  <Camera className="w-6 h-6" />
-                  Capture Photo
-                </button>
+
+              {/* Feature Grid */}
+              <div id="features" className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-32 text-left">
+                {[
+                  { icon: ShieldCheck, title: "Lighting Neutral", desc: "Uses white-patch calibration to scale RGB channels and remove color casts." },
+                  { icon: Microscope, title: "Perceptual Lab Space", desc: "Calculates differences using CIE Lab DeltaE distances, not raw RGB pixels." },
+                  { icon: FileText, title: "AI Generated Reports", desc: "Detailed technical explanation for every test result, powered by Gemini." }
+                ].map((f, i) => (
+                  <div key={i} className="bg-slate-900/50 border border-slate-800 p-8 rounded-3xl hover:border-slate-700 transition-colors">
+                    <f.icon className="w-10 h-10 text-blue-500 mb-6" />
+                    <h4 className="text-xl font-bold mb-3">{f.title}</h4>
+                    <p className="text-slate-500 leading-relaxed text-sm">{f.desc}</p>
+                  </div>
+                ))}
               </div>
             </div>
-          ) : (
-            <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
-              <div className="p-4 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between">
-                <div className="flex items-center gap-2"><MousePointer2 className="w-4 h-4 text-blue-400" /><span className="text-sm font-semibold text-slate-400">ROI SELECTION MODE</span></div>
-                <div className="flex gap-2">{ROI_STEPS.map((s, idx) => (<div key={String(s.key)} className={`w-2 h-2 rounded-full ${idx < step ? 'bg-emerald-500' : idx === step ? 'bg-blue-500 animate-pulse' : 'bg-slate-700'}`} />))}</div>
+            
+            {/* Background Glows */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-600/5 blur-[120px] pointer-events-none rounded-full" />
+            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-emerald-500/5 blur-[100px] pointer-events-none rounded-full" />
+          </div>
+        ) : (
+          /* Editor Section */
+          <div className="max-w-7xl mx-auto px-6 py-12">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+              {/* Left Column: Visual Editor */}
+              <div className="lg:col-span-8 space-y-8">
+                {isCameraActive ? (
+                  <div className="bg-black rounded-[40px] border border-slate-800 overflow-hidden shadow-2xl relative aspect-video flex items-center justify-center group">
+                    <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-6">
+                      <button 
+                        onClick={stopCamera} 
+                        className="bg-slate-900/80 hover:bg-slate-800 text-white p-5 rounded-full backdrop-blur-xl transition-all border border-white/10 active:scale-90"
+                      >
+                        <X className="w-6 h-6" />
+                      </button>
+                      <button 
+                        onClick={capturePhoto} 
+                        className="bg-white hover:bg-slate-100 text-slate-950 px-10 py-5 rounded-full font-black shadow-2xl flex items-center gap-3 active:scale-95 transition-all"
+                      >
+                        <Camera className="w-6 h-6" /> Capture Test
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-slate-900 rounded-[40px] border border-slate-800 overflow-hidden shadow-2xl flex flex-col">
+                    <div className="px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-blue-500/10 p-2 rounded-lg">
+                          <MousePointer2 className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg text-white">Region Selection</h3>
+                          <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Step {step + 1} of 4</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {ROI_STEPS.map((s, idx) => (
+                          <div key={String(s.key)} className={`w-10 h-1.5 rounded-full transition-all duration-500 ${idx < step ? 'bg-emerald-500' : idx === step ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'bg-slate-800'}`} />
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div ref={containerRef} className="relative cursor-crosshair bg-black flex items-center justify-center overflow-hidden min-h-[500px]">
+                      <canvas ref={displayCanvasRef} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} className="max-w-full h-auto" />
+                      <canvas ref={canvasRef} className="hidden" />
+                      
+                      {step < ROI_STEPS.length && (
+                        <div className="absolute top-6 left-6 pointer-events-none animate-in slide-in-from-left-4 duration-500">
+                          <div className={`px-6 py-4 rounded-3xl border-2 backdrop-blur-xl shadow-2xl flex items-center gap-4 ${ROI_STEPS[step].color.split(' ')[0]} bg-slate-950/90`}>
+                            <div className="bg-white/10 p-2 rounded-full"><Info className="w-4 h-4" /></div>
+                            <div>
+                              <p className="text-white font-black text-sm">{ROI_STEPS[step].label}</p>
+                              <p className="text-xs text-slate-400">Drag a box over this target</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="px-8 py-6 bg-slate-900/80 border-t border-slate-800 flex justify-between items-center">
+                      <div className="text-sm font-medium text-slate-400">
+                        {step < ROI_STEPS.length ? "Define regions to calibrate analysis..." : "Ready to analyze spectral data"}
+                      </div>
+                      {step === ROI_STEPS.length && !results && (
+                        <button 
+                          onClick={analyzeColors} 
+                          disabled={isAnalyzing} 
+                          className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white px-10 py-4 rounded-2xl font-black transition-all flex items-center gap-3 shadow-2xl shadow-blue-600/30 active:scale-95"
+                        >
+                          {isAnalyzing ? <Zap className="w-6 h-6 animate-spin" /> : <Zap className="w-6 h-6" />}
+                          {isAnalyzing ? 'Processing Spectral Data...' : 'Run Vision AI Analysis'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div ref={containerRef} className="relative cursor-crosshair bg-black flex items-center justify-center overflow-hidden min-h-[400px]">
-                <canvas ref={displayCanvasRef} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} className="max-w-full h-auto" />
-                <canvas ref={canvasRef} className="hidden" />
-              </div>
-              <div className="p-4 bg-slate-900/80 border-t border-slate-800 flex justify-between items-center">
-                <div className="text-sm">
-                  {step < ROI_STEPS.length ? (
-                    <div className="flex items-center gap-3"><div className={`px-3 py-1 rounded-md border ${String(ROI_STEPS[step].color)}`}>Select {String(ROI_STEPS[step].label)}</div><span className="text-slate-500 italic">Drag a rectangle over the target area</span></div>
-                  ) : (<div className="flex items-center gap-2 text-emerald-400 font-medium"><CheckCircle2 className="w-5 h-5" />All regions selected</div>)}
+
+              {/* Right Column: Workflow & Results */}
+              <div className="lg:col-span-4 space-y-8">
+                <div className="bg-slate-900 rounded-[32px] border border-slate-800 p-8 shadow-xl">
+                  <h3 className="text-xl font-bold mb-8 flex items-center gap-3">
+                    <Pipette className="w-6 h-6 text-blue-500" />
+                    Calibration Path
+                  </h3>
+                  <div className="space-y-4">
+                    {ROI_STEPS.map((s, idx) => (
+                      <div key={String(s.key)} className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300 ${rois[s.key] ? 'bg-emerald-500/5 border-emerald-500/20' : step === idx ? 'bg-blue-600/5 border-blue-600/40' : 'border-slate-800/50 opacity-40'}`}>
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black ${rois[s.key] ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : step === idx ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-800 text-slate-500'}`}>
+                            {idx + 1}
+                          </div>
+                          <div>
+                            <span className={`block font-bold text-sm ${step === idx ? 'text-white' : 'text-slate-400'}`}>{String(s.label)}</span>
+                            {rois[s.key] && <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">Locked</span>}
+                          </div>
+                        </div>
+                        {rois[s.key] && <CheckCircle2 className="w-6 h-6 text-emerald-500" />}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                {step === ROI_STEPS.length && !results && (<button onClick={analyzeColors} disabled={isAnalyzing} className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white px-8 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20">{isAnalyzing ? <Zap className="w-5 h-5 animate-spin" /> : <ChevronRight className="w-5 h-5" />}{isAnalyzing ? 'Analyzing...' : 'Execute Analysis'}</button>)}
+
+                {results && (
+                  <div className="animate-in fade-in slide-in-from-right-4 duration-700 space-y-6">
+                    <div className="bg-slate-900 rounded-[32px] border border-slate-800 overflow-hidden shadow-2xl">
+                      <div className="p-8 bg-gradient-to-br from-slate-900 to-slate-950">
+                        <div className="flex items-center justify-between mb-8">
+                          <h3 className="text-2xl font-black text-white">Spectral Results</h3>
+                          <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-lg ${results.winner === 'A' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 shadow-blue-500/10' : 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 shadow-emerald-500/10'}`}>
+                            Winner: {results.winner}
+                          </div>
+                        </div>
+
+                        <div className="space-y-8 mb-10">
+                          <div>
+                            <div className="flex justify-between text-sm mb-3">
+                              <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Dominance: A</span>
+                              <span className="text-white font-black text-lg">{String(results.pctA.toFixed(1))}%</span>
+                            </div>
+                            <div className="h-4 bg-slate-800 rounded-full overflow-hidden p-0.5">
+                              <div className="h-full bg-blue-600 rounded-full transition-all duration-[2000ms] shadow-[0_0_20px_rgba(37,99,235,0.4)]" style={{ width: `${results.pctA}%` }} />
+                            </div>
+                            <div className="mt-2 text-[10px] text-slate-600 font-bold uppercase tracking-widest">DeltaE: {String(results.dA.toFixed(2))}</div>
+                          </div>
+
+                          <div>
+                            <div className="flex justify-between text-sm mb-3">
+                              <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Dominance: B</span>
+                              <span className="text-white font-black text-lg">{String(results.pctB.toFixed(1))}%</span>
+                            </div>
+                            <div className="h-4 bg-slate-800 rounded-full overflow-hidden p-0.5">
+                              <div className="h-full bg-emerald-600 rounded-full transition-all duration-[2000ms] shadow-[0_0_20px_rgba(5,150,105,0.4)]" style={{ width: `${results.pctB}%` }} />
+                            </div>
+                            <div className="mt-2 text-[10px] text-slate-600 font-bold uppercase tracking-widest">DeltaE: {String(results.dB.toFixed(2))}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-4 mb-10">
+                          <button 
+                            onClick={copyResultsToClipboard}
+                            className="flex-grow bg-slate-800 hover:bg-slate-700 text-white px-4 py-3 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 border border-slate-700"
+                          >
+                            {copySuccess ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                            {copySuccess ? "Copied" : "Copy Summary"}
+                          </button>
+                          <button 
+                            className="bg-slate-800 hover:bg-slate-700 text-white p-3 rounded-2xl transition-all border border-slate-700"
+                            onClick={() => window.print()}
+                          >
+                            <Download className="w-5 h-5" />
+                          </button>
+                        </div>
+
+                        <div className="bg-slate-950/50 border border-slate-800/50 p-6 rounded-3xl relative overflow-hidden group">
+                          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <Microscope className="w-20 h-20" />
+                          </div>
+                          <div className="flex items-center gap-3 mb-4">
+                            <Info className="w-4 h-4 text-blue-500" />
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Technical Audit</span>
+                          </div>
+                          <div className="prose prose-invert prose-sm relative z-10">
+                            {results.report.split('\n').map((para, i) => (
+                              <p key={i} className="text-slate-400 leading-relaxed text-[13px] mb-4 last:mb-0 font-medium italic italic">
+                                {String(para)}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-        </div>
-        <div className="lg:col-span-5 space-y-6">
-          <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6">
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Pipette className="w-5 h-5 text-blue-400" />Capture Workflow</h3>
-            <div className="space-y-3">
-              {ROI_STEPS.map((s, idx) => (
-                <div key={String(s.key)} className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${rois[s.key] ? 'bg-slate-800/40 border-slate-700' : step === idx ? 'bg-blue-500/5 border-blue-500/30' : 'border-transparent opacity-40'}`}>
-                  <div className="flex items-center gap-3"><div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${rois[s.key] ? 'bg-emerald-500 text-emerald-950' : step === idx ? 'bg-blue-500 text-blue-950' : 'bg-slate-800 text-slate-500'}`}>{idx + 1}</div><span className={`font-semibold ${step === idx ? 'text-white' : 'text-slate-400'}`}>{String(s.label)}</span></div>
-                  {rois[s.key] && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
-                </div>
-              ))}
             </div>
           </div>
-          {results ? (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
-              <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden">
-                <div className="p-6 bg-gradient-to-br from-slate-900 to-slate-950">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold text-white">Analysis Result</h3>
-                    <div className={`px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${results.winner === 'A' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>Closer to {String(results.winner)}</div>
-                  </div>
-                  <div className="space-y-6 mb-8">
-                    <div>
-                      <div className="flex justify-between text-sm mb-2"><span className="text-slate-400 font-medium">Likelihood: Color A</span><span className="text-white font-bold">{String(results.pctA.toFixed(1))}%</span></div>
-                      <div className="h-3 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${results.pctA}%` }} /></div>
-                      <div className="flex justify-between text-[10px] mt-1 text-slate-600 uppercase tracking-tighter font-bold"><span>DeltaE: {String(results.dA.toFixed(2))}</span></div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-2"><span className="text-slate-400 font-medium">Likelihood: Color B</span><span className="text-white font-bold">{String(results.pctB.toFixed(1))}%</span></div>
-                      <div className="h-3 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${results.pctB}%` }} /></div>
-                      <div className="flex justify-between text-[10px] mt-1 text-slate-600 uppercase tracking-tighter font-bold"><span>DeltaE: {String(results.dB.toFixed(2))}</span></div>
-                    </div>
-                  </div>
-                  {results.controlSat > 0.15 && (
-                    <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl mb-6">
-                      <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <div><p className="text-sm font-bold text-amber-500">Calibration Warning</p><p className="text-xs text-amber-200/70 leading-relaxed">Control patch saturation is high ({String((results.controlSat * 100).toFixed(0))}%). Results may be biased by ambient lighting.</p></div>
-                    </div>
-                  )}
-                  <div className="bg-slate-800/30 border border-slate-700/50 p-5 rounded-2xl relative">
-                    <div className="absolute -top-3 left-4 bg-slate-700 px-3 py-1 rounded-md text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-2"><Info className="w-3 h-3" />Technical Audit</div>
-                    <div className="prose prose-invert prose-sm mt-2 max-h-[300px] overflow-y-auto custom-scrollbar">
-                      {results.report.split('\n').map((para, i) => (<p key={i} className="text-slate-400 leading-relaxed mb-3 last:mb-0 italic font-medium">{String(para)}</p>))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-slate-900/50 rounded-3xl border border-slate-800 p-8 flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-6"><Zap className="w-8 h-8 text-slate-600" /></div>
-              <h4 className="text-slate-400 font-bold mb-2">Analysis Pending</h4>
-              <p className="text-slate-600 text-sm max-w-[200px]">Complete all 4 selections to unlock the perceptual analysis report.</p>
-            </div>
-          )}
-        </div>
+        )}
       </main>
+
+      {/* Technical Footer */}
+      <footer id="about" className="bg-slate-900/30 border-t border-slate-900 py-20 px-6 mt-20">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+          <div className="md:col-span-2">
+            <div className="flex items-center gap-3 mb-6">
+              <Crosshair className="w-8 h-8 text-blue-500" />
+              <h5 className="text-2xl font-black">Color Examiner AI</h5>
+            </div>
+            <p className="text-slate-500 text-sm max-w-md leading-relaxed mb-8">
+              A professional spectral analysis tool developed for rapid, non-destructive chemical test strip comparison. 
+              Our vision engine operates in the CIE L*a*b* color space for perceptual uniformity.
+            </p>
+            <div className="flex gap-4">
+              <a href="#" className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"><Share2 className="w-5 h-5" /></a>
+              <a href="#" className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"><ExternalLink className="w-5 h-5" /></a>
+            </div>
+          </div>
+          
+          <div>
+            <h6 className="font-bold text-white mb-6 uppercase tracking-widest text-xs">Algorithms</h6>
+            <ul className="space-y-4 text-sm text-slate-500">
+              <li>CIE L*a*b* Perceptual Space</li>
+              <li>DeltaE Euclidean Distance</li>
+              <li>Von Kries WB Scaling</li>
+              <li>Median Filtering for Noise</li>
+            </ul>
+          </div>
+
+          <div>
+            <h6 className="font-bold text-white mb-6 uppercase tracking-widest text-xs">Platform</h6>
+            <ul className="space-y-4 text-sm text-slate-500">
+              <li>Google Gemini 3 Pro</li>
+              <li>React 19 Frontend</li>
+              <li>Tailwind CSS Design</li>
+              <li>Lucide Vector Graphics</li>
+            </ul>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto border-t border-slate-800/50 mt-16 pt-8 flex justify-between items-center text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em]">
+          <span>© 2025 Visionary Chemical Systems</span>
+          <span>Experimental Clinical Prototyping</span>
+        </div>
+      </footer>
+
       {error && (
-        <div className="fixed bottom-8 right-8 bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-2xl flex items-center gap-3 backdrop-blur-xl shadow-2xl animate-in slide-in-from-right-8 max-w-sm z-50">
-          <AlertCircle className="w-6 h-6 flex-shrink-0" />
-          <span className="font-bold text-sm">{String(error)}</span>
-          <button onClick={() => setError(null)} className="ml-2 text-white/50 hover:text-white">&times;</button>
+        <div className="fixed bottom-8 right-8 bg-red-600 text-white p-5 rounded-[24px] flex items-center gap-4 backdrop-blur-3xl shadow-2xl animate-in slide-in-from-right-8 max-w-sm z-[100] border border-red-500">
+          <div className="bg-white/20 p-2 rounded-full"><AlertCircle className="w-6 h-6" /></div>
+          <div>
+            <p className="font-black text-sm uppercase tracking-wider">System Error</p>
+            <p className="text-xs opacity-80">{String(error)}</p>
+          </div>
+          <button onClick={() => setError(null)} className="ml-2 hover:scale-125 transition-transform"><X className="w-5 h-5" /></button>
         </div>
       )}
+
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #020617; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        html { scroll-behavior: smooth; }
+        @media print {
+          nav, footer, .lg:col-span-8, button { display: none !important; }
+          .lg:col-span-4 { width: 100% !important; border: none !important; }
+          body { background: white !important; color: black !important; }
+          .text-white { color: black !important; }
+          .bg-slate-900 { background: white !important; }
+        }
       `}</style>
     </div>
   );

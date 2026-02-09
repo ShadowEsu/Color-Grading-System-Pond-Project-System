@@ -4,7 +4,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Color Examiner AI</title>
+  <title>Color Examiner AI - Professional Chemical Analysis</title>
+  <meta name="description" content="Precision color analysis tool for chemical test strips using CIE Lab color space and AI-driven reporting.">
+  
+  <!-- Social Media Meta Tags -->
+  <meta property="og:title" content="Color Examiner AI">
+  <meta property="og:description" content="Professional-grade color comparison for chemical testing.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script type="importmap">
   {
@@ -19,8 +29,14 @@
     }
   }
   </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
 </head>
-<body class="bg-slate-950">
+<body class="bg-slate-950 text-slate-200 antialiased selection:bg-blue-500/30">
   <div id="root"></div>
   <script type="module" src="index.tsx"></script>
 </body>
