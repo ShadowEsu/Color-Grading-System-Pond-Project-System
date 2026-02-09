@@ -1,3 +1,3 @@
-POND PROJECT COLOR GRADING SYSTEM DESCRIPTION
+**POND PROJECT COLOR GRADING SYSTEM DESCRIPTION**
 
 This is an app/webste made wiht google ai studios on creating an app that can precisely judge and distinguish between two colors that are almost the same as the experiment color. I made this for pond project where we have a test on ph for example and we could not judge the color between 2 colors on the instructions. This project analyses teh colors and uses a sheet of paper to judge and base on the background color and use the pixels from the camera to judge using a percentage of how close it is to the 2 colors and picks the one that resembles the other the most.
